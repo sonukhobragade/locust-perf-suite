@@ -1,0 +1,45 @@
+# Core Load Testing
+locust==2.43.4
+locust-plugins==5.0.0
+
+# gRPC Support
+grpcio==1.62.1
+grpcio-tools==1.62.1
+protobuf>=3.20.0,<5.0
+
+# HTTP/WebSocket
+requests>=2.32.2
+websocket-client==1.7.0
+gevent==24.11.1
+geventhttpclient==2.3.1
+
+# Kafka Support
+confluent-kafka==2.3.0
+
+# AWS Support
+boto3==1.34.51
+
+# Database Support
+pymongo==4.6.2
+psycopg2-binary==2.9.9
+
+# MQTT Support
+paho-mqtt==2.0.0
+
+# Data Processing
+pandas==2.2.1
+numpy==1.26.4
+
+# Utilities
+python-dotenv==1.0.1
+PyYAML==6.0.1
+coloredlogs==15.0.1
+jsonpath-ng==1.6.1
+
+# Testing
+pytest>=8.3.3
+pytest-html>=4.1.1
+
+# Reporting & Monitoring
+influxdb-client==1.41.0
+prometheus-client==0.20.0

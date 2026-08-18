@@ -1,0 +1,40 @@
+{
+  "include": [
+    "tests",
+    "util",
+    "LocustHelpers"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "venv"
+  ],
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "Darwin",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false,
+  "reportGeneralTypeIssues": "warning",
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none",
+  "reportPrivateImportUsage": "none",
+  "stubPath": "./typings",
+  "executionEnvironments": [
+    {
+      "root": "tests",
+      "pythonVersion": "3.13",
+      "extraPaths": [
+        ".",
+        "./LocustHelpers",
+        "./util"
+      ]
+    },
+    {
+      "root": ".",
+      "pythonVersion": "3.13"
+    }
+  ]
+}

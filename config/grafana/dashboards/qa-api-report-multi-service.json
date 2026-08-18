@@ -1,0 +1,145 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true, "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts", "type": "dashboard"
+      }
+    ]
+  },
+  "description": "One screenshot per run window. Multi-select services. Per-URI table + error-by-endpoint drilldown. Source: in-cluster Prometheus.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {"collapsed": false, "gridPos": {"h":1,"w":24,"x":0,"y":0}, "id": 100, "panels": [], "title": "API Gateway (edge)", "type": "row"},
+
+    {"datasource": "${datasource}", "gridPos": {"h":6,"w":12,"x":0,"y":1}, "id": 107, "type": "timeseries",
+     "title": "GW RPS over time",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"unit":"reqps","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets": [{"expr":"sum by (status) (rate(http_server_requests_seconds_count{application=\"api-gw\",method=~\"$method\"}[1m]))","legendFormat":"{{status}}","refId":"A"}]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":6,"w":12,"x":12,"y":1}, "id": 108, "type": "timeseries",
+     "title": "GW p95/p99 latency (ms)",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"unit":"ms","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets": [
+       {"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"api-gw\",method=~\"$method\"}[2m]))) * 1000","legendFormat":"p95","refId":"A"},
+       {"expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"api-gw\",method=~\"$method\"}[2m]))) * 1000","legendFormat":"p99","refId":"B"}
+     ]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":6,"w":12,"x":0,"y":7}, "id": 102, "type": "timeseries",
+     "title": "GW 5xx",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"decimals":0,"unit":"short","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets":[{"expr":"sum(increase(http_server_requests_seconds_count{application=\"api-gw\",method=~\"$method\",status=~\"5..\"}[$__range]))","refId":"A"}]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":6,"w":12,"x":12,"y":7}, "id": 103, "type": "timeseries",
+     "title": "GW 4xx",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"decimals":0,"unit":"short","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets":[{"expr":"sum(increase(http_server_requests_seconds_count{application=\"api-gw\",method=~\"$method\",status=~\"4..\"}[$__range]))","refId":"A"}]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":8,"w":12,"x":0,"y":13}, "id": 110, "type": "table",
+     "title": "5xx by endpoint (api-gw)",
+     "transformations": [
+       {"id":"organize","options":{"excludeByName":{"Time":true},"renameByName":{"method":"Method","uri":"URI","status":"Status","Value":"Count"}}},
+       {"id":"filterByValue","options":{"filters":[{"fieldName":"Count","config":{"id":"greater","options":{"value":0}}}],"type":"include","match":"all"}},
+       {"id":"sortBy","options":{"fields":{},"sort":[{"field":"Count","desc":true}]}}
+     ],
+     "targets":[{"expr":"sum by (method,uri,status) (increase(http_server_requests_seconds_count{application=\"api-gw\",method=~\"$method\",status=~\"5..\"}[$__range]))","refId":"A","format":"table","instant":true}],
+     "fieldConfig": {"defaults": {"custom":{"align":"auto","cellOptions":{"type":"auto"},"filterable":true},"decimals":0},
+       "overrides":[{"matcher":{"id":"byName","options":"Count"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":1,"color":"red"}]}}]}]}},
+
+    {"datasource": "${datasource}", "gridPos": {"h":8,"w":12,"x":12,"y":13}, "id": 111, "type": "table",
+     "title": "4xx by endpoint (api-gw)",
+     "transformations": [
+       {"id":"organize","options":{"excludeByName":{"Time":true},"renameByName":{"method":"Method","uri":"URI","status":"Status","Value":"Count"}}},
+       {"id":"filterByValue","options":{"filters":[{"fieldName":"Count","config":{"id":"greater","options":{"value":0}}}],"type":"include","match":"all"}},
+       {"id":"sortBy","options":{"fields":{},"sort":[{"field":"Count","desc":true}]}}
+     ],
+     "targets":[{"expr":"sum by (method,uri,status) (increase(http_server_requests_seconds_count{application=\"api-gw\",method=~\"$method\",status=~\"4..\"}[$__range]))","refId":"A","format":"table","instant":true}],
+     "fieldConfig": {"defaults": {"custom":{"align":"auto","cellOptions":{"type":"auto"},"filterable":true},"decimals":0},
+       "overrides":[{"matcher":{"id":"byName","options":"Count"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":1,"color":"yellow"},{"value":50,"color":"orange"}]}}]}]}},
+
+    {"collapsed": false, "gridPos": {"h":1,"w":24,"x":0,"y":21}, "id": 200, "panels": [], "title": "Backend Services (excludes gateway)", "type": "row"},
+
+    {"datasource": "${datasource}", "gridPos": {"h":7,"w":12,"x":0,"y":22}, "id": 10, "type": "timeseries",
+     "title": "RPS per service",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"unit":"reqps","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets":[{"expr":"sum by (application) (rate(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\"}[1m]))","legendFormat":"{{application}}","refId":"A"}]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":7,"w":12,"x":12,"y":22}, "id": 11, "type": "timeseries",
+     "title": "p95 latency per service (ms)",
+     "fieldConfig": {"defaults": {"color":{"mode":"palette-classic"},"unit":"ms","custom":{"drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto"}}},
+     "options": {"legend":{"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"single"}},
+     "targets":[{"expr":"histogram_quantile(0.95, sum by (application, le) (rate(http_server_requests_seconds_bucket{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\"}[2m]))) * 1000","legendFormat":"{{application}}","refId":"A"}]},
+
+    {"datasource": "${datasource}", "gridPos": {"h":20,"w":24,"x":0,"y":29}, "id": 20, "type": "table",
+     "title": "Per-endpoint summary across all selected services (run window)",
+     "options": {"cellHeight":"sm","showHeader":true,"sortBy":[{"desc":true,"displayName":"Requests"}]},
+     "transformations": [
+       {"id":"joinByField","options":{"byField":"endpoint_key","mode":"outer"}},
+       {"id":"organize","options":{
+         "excludeByName": {"Time":true,"Time 1":true,"Time 2":true,"Time 3":true,"Time 4":true,"Time 5":true,"Time 6":true,"Time 7":true,"Time 8":true,"Time 9":true,"Time 10":true,"application 2":true,"application 3":true,"application 4":true,"application 5":true,"application 6":true,"application 7":true,"application 8":true,"application 9":true,"application 10":true,"method 2":true,"method 3":true,"method 4":true,"method 5":true,"method 6":true,"method 7":true,"method 8":true,"method 9":true,"method 10":true,"uri 2":true,"uri 3":true,"uri 4":true,"uri 5":true,"uri 6":true,"uri 7":true,"uri 8":true,"uri 9":true,"uri 10":true},
+         "renameByName": {"application 1":"Service","method 1":"Method","uri 1":"URI","Value #A":"Requests","Value #B":"5xx","Value #C":"4xx","Value #D":"p50 (ms)","Value #E":"p95 (ms)","Value #F":"p99 (ms)","Value #G":"p99.9 (ms)","Value #H":"Error %","Value #I":"RPS","Value #J":"RPM"},
+         "indexByName": {"endpoint_key":0,"application 1":1,"method 1":2,"uri 1":3,"Value #A":4,"Value #I":5,"Value #J":6,"Value #D":7,"Value #E":8,"Value #F":9,"Value #G":10,"Value #B":11,"Value #C":12,"Value #H":13}
+       }}
+     ],
+     "targets": [
+       {"expr":"label_join(sum by (application,method,uri) (increase(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range])), \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"A","format":"table","instant":true},
+       {"expr":"label_join(sum by (application,method,uri) (increase(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",status=~\"5..\"}[$__range])), \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"B","format":"table","instant":true},
+       {"expr":"label_join(sum by (application,method,uri) (increase(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",status=~\"4..\"}[$__range])), \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"C","format":"table","instant":true},
+       {"expr":"label_join(histogram_quantile(0.50, sum by (application,method,uri,le) (rate(http_server_requests_seconds_bucket{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range]))) * 1000, \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"D","format":"table","instant":true},
+       {"expr":"label_join(histogram_quantile(0.95, sum by (application,method,uri,le) (rate(http_server_requests_seconds_bucket{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range]))) * 1000, \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"E","format":"table","instant":true},
+       {"expr":"label_join(histogram_quantile(0.99, sum by (application,method,uri,le) (rate(http_server_requests_seconds_bucket{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range]))) * 1000, \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"F","format":"table","instant":true},
+       {"expr":"label_join(histogram_quantile(0.999, sum by (application,method,uri,le) (rate(http_server_requests_seconds_bucket{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range]))) * 1000, \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"G","format":"table","instant":true},
+       {"expr":"label_join(100 * sum by (application,method,uri) (rate(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",status=~\"[45]..\"}[$__range])) / sum by (application,method,uri) (rate(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\"}[$__range])), \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"H","format":"table","instant":true},
+       {"expr":"label_join(sum by (application,method,uri) (rate(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range])), \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"I","format":"table","instant":true},
+       {"expr":"label_join(sum by (application,method,uri) (rate(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\",method=~\"$method\",uri!~\"/actuator.*|UNKNOWN|/[*][*]|/error\"}[$__range])) * 60, \"endpoint_key\", \" \", \"application\",\"method\",\"uri\")","refId":"J","format":"table","instant":true}
+     ],
+     "fieldConfig": {"defaults": {"custom":{"align":"center","cellOptions":{"type":"auto"},"filterable":true,"wrapText":true}},
+       "overrides":[
+         {"matcher":{"id":"byName","options":"p95 (ms)"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":100,"color":"yellow"},{"value":300,"color":"orange"},{"value":500,"color":"red"}]}},{"id":"decimals","value":0},{"id":"unit","value":"ms"}]},
+         {"matcher":{"id":"byName","options":"p99 (ms)"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":300,"color":"yellow"},{"value":600,"color":"orange"},{"value":1000,"color":"red"}]}},{"id":"decimals","value":0},{"id":"unit","value":"ms"}]},
+         {"matcher":{"id":"byName","options":"p99.9 (ms)"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":500,"color":"yellow"},{"value":1000,"color":"orange"},{"value":2000,"color":"red"}]}},{"id":"decimals","value":0},{"id":"unit","value":"ms"}]},
+         {"matcher":{"id":"byName","options":"Error %"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":1,"color":"yellow"},{"value":5,"color":"red"}]}},{"id":"decimals","value":2},{"id":"unit","value":"percent"}]},
+         {"matcher":{"id":"byName","options":"5xx"},"properties":[{"id":"custom.cellOptions","value":{"type":"color-background-solid"}},{"id":"thresholds","value":{"mode":"absolute","steps":[{"value":null,"color":"green"},{"value":1,"color":"red"}]}},{"id":"decimals","value":0}]},
+         {"matcher":{"id":"byName","options":"4xx"},"properties":[{"id":"decimals","value":0}]},
+         {"matcher":{"id":"byName","options":"p50 (ms)"},"properties":[{"id":"decimals","value":0},{"id":"unit","value":"ms"}]},
+         {"matcher":{"id":"byName","options":"RPS"},"properties":[{"id":"decimals","value":2},{"id":"unit","value":"reqps"}]},
+         {"matcher":{"id":"byName","options":"RPM"},"properties":[{"id":"decimals","value":0}]},
+         {"matcher":{"id":"byName","options":"Requests"},"properties":[{"id":"decimals","value":0}]},
+         {"matcher":{"id":"byName","options":"endpoint_key"},"properties":[{"id":"custom.hideFrom.viz","value":true}]},
+         {"matcher":{"id":"byName","options":"Service"},"properties":[{"id":"custom.width","value":193}]},
+         {"matcher":{"id":"byName","options":"URI"},"properties":[{"id":"custom.width","value":290}]},
+         {"matcher":{"id":"byName","options":"Method"},"properties":[{"id":"custom.width","value":104}]}
+       ]}}
+  ],
+  "preload": false,
+  "refresh": "5s",
+  "schemaVersion": 42,
+  "tags": ["qa","api","report","multi-service"],
+  "templating": {
+    "list": [
+      {"name":"datasource","type":"datasource","query":"prometheus","refresh":1,"current":{"text":"Prometheus","value":"prometheus"},"options":[]},
+      {"name":"application","label":"Service(s)","type":"query","datasource":"${datasource}","query":"label_values(http_server_requests_seconds_count, application)","refresh":1,"sort":1,"includeAll":true,"multi":true,"current":{"text":"All","value":"$__all"},"options":[]},
+      {"name":"method","label":"Method","type":"query","datasource":"${datasource}","query":"label_values(http_server_requests_seconds_count{application=~\"$application\",application!~\"$exclude_app\"}, method)","refresh":1,"includeAll":true,"multi":true,"current":{"text":"All","value":"$__all"},"options":[]},
+      {"name":"status_filter","label":"Status","type":"custom","query":"All : .* , 2xx : 2.. , 4xx : 4.. , 5xx : 5..","current":{"text":".*","value":".*"},"options":[{"selected":true,"text":"All","value":".*"},{"selected":false,"text":"2xx","value":"2.."},{"selected":false,"text":"4xx","value":"4.."},{"selected":false,"text":"5xx","value":"5.."}]},
+      {"name":"exclude_app","label":"Exclude (regex)","type":"textbox","query":"api-gw","current":{"text":"api-gw","value":"api-gw"},"description":"Regex of application names to exclude from aggregates (default: api-gw to avoid double-count). Set to '$^' to exclude nothing.","options":[{"selected":true,"text":"api-gw","value":"api-gw"}]}
+    ]
+  },
+  "time": {"from":"now-15m","to":"now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "QA API Report — All Services (multi-select)",
+  "uid": "qa-api-report-multi",
+  "version": 21
+}
