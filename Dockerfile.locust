@@ -1,0 +1,45 @@
+# Locust Load Testing - Standalone Docker Container
+# This container runs independently of your desktop session
+
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first (for better caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose ports:
+# 8089 = Locust Web UI
+# 9090 = Prometheus Metrics (default tests)
+# 9092 = Prometheus Metrics (user-profile test)
+# 5557 = Locust master-worker communication (if using distributed mode)
+EXPOSE 8089 9090 9092 5557
+
+# Default environment variables (can be overridden at runtime)
+ENV LOCUST_HOST=https://api.example.com
+ENV LOCUST_USERS=10
+ENV LOCUST_SPAWN_RATE=1
+ENV LOCUST_RUN_TIME=10m
+ENV LOCUST_LOGLEVEL=INFO
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8089/ || exit 1
+
+# Default command: Run Locust in web UI mode with STATIC (non-streaming) test
+# Override this when running container for different tests
+CMD ["sh", "-c", "locust -f tests/SampleService/sample_http_load.py --web-host=0.0.0.0 --web-port=8089"]

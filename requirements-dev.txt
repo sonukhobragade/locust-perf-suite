@@ -1,0 +1,5 @@
+# Tooling for `make lint`, `make format` and `make type-check`.
+# Kept out of requirements.txt so a load-test run does not pull in a linter.
+ruff==0.13.2  # pinned: an unpinned linter turns a new ruff release into a red CI
+pyright>=1.1.380
+pytest>=8.0

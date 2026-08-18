@@ -1,0 +1,49 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+
+
+  - job_name: 'locust-user-profile'
+    honor_labels: true
+    static_configs:
+      # Scrape both: host.docker.internal (when locust runs on host via venv)
+      # and locust:9092 (when locust runs in compose). One returns up=0, other up=1.
+      - targets: ['host.docker.internal:9092', 'locust:9092']
+        labels:
+          environment: 'testing'
+
+  - job_name: 'locust-assistant-profile'
+    honor_labels: true
+    static_configs:
+      - targets: ['host.docker.internal:9093', 'locust:9093']
+        labels:
+          environment: 'testing'
+
+  - job_name: 'locust-content'
+    honor_labels: true
+    static_configs:
+      - targets: ['host.docker.internal:9094', 'locust:9094']
+        labels:
+          environment: 'testing'
+
+  - job_name: 'locust-reports'
+    honor_labels: true
+    static_configs:
+      - targets: ['host.docker.internal:9095', 'locust:9095']
+        labels:
+          environment: 'testing'
+
+  - job_name: 'locust-payments'
+    honor_labels: true
+    static_configs:
+      - targets: ['host.docker.internal:9096', 'locust:9096']
+        labels:
+          environment: 'testing'
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          environment: 'testing'

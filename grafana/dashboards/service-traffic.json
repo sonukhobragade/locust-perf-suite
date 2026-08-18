@@ -1,0 +1,2046 @@
+{
+  "title": "\u2014 Service Traffic (Traffic tab)",
+  "uid": "service-traffic",
+  "schemaVersion": 42,
+  "editable": true,
+  "tags": [
+    "prod",
+    "traffic-profile"
+  ],
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "application",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(http_server_requests_seconds_count, application)",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "current": {
+          "text": "user-profile",
+          "value": "user-profile"
+        },
+        "sort": 1,
+        "label": "Service"
+      },
+      {
+        "name": "uri",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\"}, uri)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "label": "Endpoint"
+      },
+      {
+        "name": "method",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(http_server_requests_seconds_count{application=\"$application\",uri=~\"$uri\"}, method)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "label": "Method"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 399,
+      "title": "Triage \u2014 slowest + error endpoints (5m)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 401,
+      "type": "table",
+      "title": "Top 5 slowest endpoints (p99, 5m)",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "topk(5, 1000 * histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\"}[5m]))))"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "uri": "Endpoint",
+              "Value": "p99 (ms)"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "p99 (ms)",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 402,
+      "type": "table",
+      "title": "Top 5 endpoints by 5xx rate (5m)",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "topk(5, 100 * sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",status=~\"5..\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\"}[5m])) / clamp_min(sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\"}[5m])), 0.0001))"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "uri": "Endpoint",
+              "Value": "5xx %"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "5xx %",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Headline KPIs",
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Requests ($__range)",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Success ($__range)",
+      "gridPos": {
+        "x": 3,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status!~\"5..\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "5xx Errors ($__range)",
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status=~\"5..\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Success Rate ($__range)",
+      "gridPos": {
+        "x": 9,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status!~\"5..\"}[$__range])) / clamp_min(sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])), 1)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 99
+              },
+              {
+                "color": "green",
+                "value": 99.5
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Current RPS",
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 50,
+      "type": "stat",
+      "title": "Current RPM",
+      "gridPos": {
+        "x": 15,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "60 * sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 51,
+      "type": "stat",
+      "title": "Peak RPS ($__range)",
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max_over_time(sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))[$__range:1m])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 52,
+      "type": "stat",
+      "title": "Peak RPM ($__range)",
+      "gridPos": {
+        "x": 21,
+        "y": 11,
+        "w": 3,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max_over_time(sum(increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))[$__range:1m])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Latency vs SLO",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "p50",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "p95 (SLO 200ms)",
+      "gridPos": {
+        "x": 4,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "p99 (SLO 500ms)",
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Avg",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * sum(rate(http_server_requests_seconds_sum{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])), 0.001)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "5xx Rate %",
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])), 0.001)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "id": 60,
+      "type": "bargauge",
+      "title": "Latency vs SLO",
+      "gridPos": {
+        "x": 20,
+        "y": 16,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "expr": "1000 * histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "max": 1000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 110,
+      "title": "Per-Endpoint Breakdown",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 70,
+      "type": "table",
+      "title": "Per-endpoint stats (Peak/Avg RPS+RPM, p50/p95/p99, Error %, Share)",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "max_over_time(sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))[$__range:1m])"
+        },
+        {
+          "refId": "B",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range]))"
+        },
+        {
+          "refId": "C",
+          "format": "table",
+          "instant": true,
+          "expr": "max_over_time(sum by (uri) (increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))[$__range:1m])"
+        },
+        {
+          "refId": "D",
+          "format": "table",
+          "instant": true,
+          "expr": "60 * sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range]))"
+        },
+        {
+          "refId": "E",
+          "format": "table",
+          "instant": true,
+          "expr": "1000 * histogram_quantile(0.50, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])))"
+        },
+        {
+          "refId": "F",
+          "format": "table",
+          "instant": true,
+          "expr": "1000 * histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])))"
+        },
+        {
+          "refId": "G",
+          "format": "table",
+          "instant": true,
+          "expr": "1000 * histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])))"
+        },
+        {
+          "refId": "H",
+          "format": "table",
+          "instant": true,
+          "expr": "100 * sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status=~\"5..\"}[$__range])) / clamp_min(sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])), 0.0001)"
+        },
+        {
+          "refId": "I",
+          "format": "table",
+          "instant": true,
+          "expr": "100 * sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])) / ignoring(uri) group_left sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range]))"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "uri",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true,
+              "Time 7": true,
+              "Time 8": true,
+              "Time 9": true
+            },
+            "renameByName": {
+              "uri": "Endpoint",
+              "Value #A": "Peak RPS",
+              "Value #B": "Avg RPS",
+              "Value #C": "Peak RPM",
+              "Value #D": "Avg RPM",
+              "Value #E": "p50 (ms)",
+              "Value #F": "p95 (ms)",
+              "Value #G": "p99 (ms)",
+              "Value #H": "Error %",
+              "Value #I": "Share %"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Peak RPS",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peak RPS"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg RPS"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peak RPM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg RPM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Share %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 200
+                    },
+                    {
+                      "color": "red",
+                      "value": 500
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 71,
+      "type": "timeseries",
+      "title": "RPS per Endpoint (top 10)",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 73,
+      "type": "timeseries",
+      "title": "RPM per Endpoint (top 10)",
+      "gridPos": {
+        "x": 8,
+        "y": 33,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, 60 * sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 72,
+      "type": "timeseries",
+      "title": "p95 Latency per Endpoint (top 10)",
+      "gridPos": {
+        "x": 16,
+        "y": 33,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, 1000 * histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m]))))",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "Trends",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Throughput RPS (Total / Success / 5xx)",
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[1m]))",
+          "legendFormat": "total"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status!~\"5..\"}[1m]))",
+          "legendFormat": "success"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 30
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Latency Percentiles",
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "1000 * histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "1000 * histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "5xx Error Rate %",
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m])), 0.001)",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "last",
+            "max",
+            "mean"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "type": "heatmap",
+      "title": "Latency Distribution Heatmap",
+      "gridPos": {
+        "x": 8,
+        "y": 50,
+        "w": 16,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (le) (rate(http_server_requests_seconds_bucket{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m]))",
+          "format": "heatmap",
+          "legendFormat": "{{le}}"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "yAxis": {
+          "unit": "s",
+          "decimals": 2,
+          "axisPlacement": "left"
+        },
+        "color": {
+          "mode": "scheme",
+          "scheme": "Spectral",
+          "steps": 64,
+          "reverse": true,
+          "exponent": 0.5
+        },
+        "tooltip": {
+          "show": true,
+          "yHistogram": true
+        },
+        "legend": {
+          "show": true
+        },
+        "cellGap": 1
+      }
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "title": "Patterns",
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 80,
+      "type": "timeseries",
+      "title": "Hourly peak RPS pattern",
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max_over_time(sum(rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[5m]))[$__range:1h])",
+          "legendFormat": "peak RPS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 81,
+      "type": "piechart",
+      "title": "Endpoint mix (top 15, $__range)",
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "instant": true,
+          "expr": "topk(15, sum by (uri) (rate(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range])))",
+          "legendFormat": "{{uri}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "percent",
+            "value"
+          ]
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "pieType": "donut"
+      }
+    },
+    {
+      "id": 82,
+      "type": "table",
+      "title": "Status code mix per endpoint ($__range)",
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "instant": true,
+          "expr": "sum by (uri, status) (increase(http_server_requests_seconds_count{application=\"$application\",uri!~\"/actuator.*|/prometheus|/favicon.ico|UNKNOWN\",uri=~\"$uri\",method=~\"$method\"}[$__range]))"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 104,
+      "title": "Reference",
+      "gridPos": {
+        "x": 0,
+        "y": 77,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": false
+    },
+    {
+      "id": 40,
+      "type": "text",
+      "title": "Notes",
+      "gridPos": {
+        "x": 0,
+        "y": 78,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "## Filters\n**Service** ($application) / **Endpoint** ($uri) / **Method** / **Profile window** at top.\n\n## Metrics source\nSpring Boot Micrometer: `http_server_requests_seconds_count`, `http_server_requests_seconds_bucket`.\n\n## SLO\np95 < 200ms \u00b7 p99 < 500ms \u00b7 5xx < 1%"
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Traffic",
+      "type": "link",
+      "url": "/d/service-traffic/?$__url_time_range&var-application=${application}",
+      "icon": "external link",
+      "tooltip": "HTTP traffic profile",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Infra",
+      "type": "link",
+      "url": "/d/service-infra/?$__url_time_range&var-application=${application}",
+      "icon": "external link",
+      "tooltip": "JVM, CPU, pods, restarts",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ]
+}
