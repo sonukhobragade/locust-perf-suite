@@ -117,7 +117,7 @@ credentials/
 .windsurfrules
 
 # ============================================
-# Claude Code & AI Tools
+# Local editor/assistant state
 # ============================================
 .claude/
 .serena/
@@ -195,5 +195,5 @@ results_stats.csv
 results_failures.csv
 results_stats_history.csv
 
-# Local Claude Code MCP server config; may contain API tokens
+# Local editor/assistant config; may contain API tokens
 .mcp.json
