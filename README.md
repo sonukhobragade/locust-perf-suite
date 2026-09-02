@@ -107,13 +107,20 @@ locust -f tests/DemoOrders/orders_load.py --host http://localhost:8000 \
 A 20-user run finishes in twenty seconds and shows the shape worth looking for:
 
 ```
-GET /catalog/[sku]     p50 3ms    p98 54ms
-GET /orders/[id]       p50 4ms    p99 43ms
+                        p50   p90   p99   p99.9   reqs
+GET  /catalog/[sku]       3     5    12      13    320
+GET  /orders/[id]         3    10    15      45    674
+PATCH /orders/[id]/status 8    14    17      21    103
+POST /orders              9    14    18      20    210
 ```
 
-That spread is the cache. The fast mode is a Redis hit; the slow mode is the
-Postgres read behind a miss. A flat, slow distribution means the cache is not
-being populated, which is a finding you cannot get from an average.
+Read the tail, not the average. `GET /orders/[id]` sits at 3ms through p50 and
+reaches 45ms at p99.9: the fast mode is a Redis hit, the slow tail is the
+Postgres read behind a miss. A flat distribution with no fast mode means the
+cache is not being populated, which is a finding no average will give you.
+
+Absolute numbers depend on the machine -- these came from a laptop run. The
+shape is the point.
 
 Raising the weight of `PATCH /orders/[id]/status` evicts more entries and should
 visibly move read latency. That coupling between write rate and read latency is
