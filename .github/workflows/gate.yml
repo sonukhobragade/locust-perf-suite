@@ -32,3 +32,37 @@ jobs:
 
       - name: Run the gate
         run: bash tools/local_gate.sh
+
+  # requirements.txt used to install 342MB for a 77MB tool, and `flask` was
+  # imported without being declared at all. This job installs only what the
+  # runtime file lists, then imports every module the suite imports, so a
+  # dependency that survives purely as somebody else's transitive install
+  # fails here instead of in a user's first run.
+  runtime-deps:
+    name: runtime install is self-sufficient
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install runtime requirements only
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Not a bare `python -c "import ...; print('ok')"`. Importing locust pulls
+      # in gevent, whose greenlet teardown races interpreter finalisation and
+      # swallowed that print entirely: the first version of this step passed
+      # with no output at all, which is the same kind of check this repository
+      # is trying to stop shipping.
+      - name: Import what the suite imports
+        run: python tools/check_runtime_imports.py
+
+      - name: Report the install size
+        run: du -sh $(python -c "import site; print(site.getsitepackages()[0])")
