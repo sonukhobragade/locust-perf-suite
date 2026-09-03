@@ -56,10 +56,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Not a bare `python -c "import ...; print('ok')"`. Importing locust pulls
+      # in gevent, whose greenlet teardown races interpreter finalisation and
+      # swallowed that print entirely: the first version of this step passed
+      # with no output at all, which is the same kind of check this repository
+      # is trying to stop shipping.
       - name: Import what the suite imports
-        run: |
-          python -c "import locust, flask, grpc, prometheus_client, dotenv; print('ok')"
-          python -c "import util.grpc_helper, util.locust_metrics, util.data_loader; print('ok')"
+        run: python tools/check_runtime_imports.py
 
       - name: Report the install size
         run: du -sh $(python -c "import site; print(site.getsitepackages()[0])")

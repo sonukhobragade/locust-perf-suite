@@ -49,6 +49,9 @@ monitoring: ## Bring up Prometheus and Grafana
 deps: ## Check requirements.txt against what the source imports
 	$(PY) tools/check_deps.py
 
+imports: ## Import every module the suite needs, using requirements.txt alone
+	$(PY) tools/check_runtime_imports.py
+
 test: deps ## Run the unit tests
 	$(PY) -m pytest tests/unit -q
 
