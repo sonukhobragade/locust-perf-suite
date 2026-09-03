@@ -57,14 +57,20 @@ step() {
 
 # --- steps -----------------------------------------------------------------
 # Keep STEPS in sync with the step calls below (used for the N/M counter).
-STEPS=(lint typecheck unit collect)
+STEPS=(lint typecheck deps unit collect)
 
 step "Lint"                                 'python -m ruff check .'
 step "Type check"                           'true'
 # This suite ships load tests, not unit tests, so pytest exits 5 ("no tests
 # collected"). That is the expected state here; any other non-zero is a
 # real failure and still fails the gate.
-step "Unit tests (no external dependencies)" 'pytest tests/; rc=$?; [ $rc -eq 0 ] || { [ $rc -eq 5 ] && echo "(no unit tests in this repo)"; }'
+step "Dependencies match the imports"       'python tools/check_deps.py'
+# This step used to accept pytest's exit code 5 as a pass, with the message
+# "(no unit tests in this repo)". That is exactly what it printed on every run:
+# tests/ held only Locust scenarios named *_load.py, which pytest does not
+# collect, so the gate was green having executed nothing. Collecting nothing is
+# now a failure, because a suite that runs no tests should not report success.
+step "Unit tests (no external dependencies)" 'pytest tests/unit -q'
 step "Collection smoke"                     'python -m compileall -q tests'
 
 printf '\n========== RESULT ==========\n'

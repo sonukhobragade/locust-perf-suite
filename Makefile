@@ -46,7 +46,11 @@ docker: ## Build the image and start the suite in Docker
 monitoring: ## Bring up Prometheus and Grafana
 	docker compose -f docker-compose.monitoring.yml up -d
 
-test: verify ## Alias for verify; this repo ships load tests, not unit tests
+deps: ## Check requirements.txt against what the source imports
+	$(PY) tools/check_deps.py
+
+test: deps ## Run the unit tests
+	$(PY) -m pytest tests/unit -q
 
 lint: ## Run ruff linting
 	$(PY) -m ruff check tests/ util/ tools/ LocustHelpers/

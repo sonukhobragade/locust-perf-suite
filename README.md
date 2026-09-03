@@ -127,6 +127,43 @@ visibly move read latency. That coupling between write rate and read latency is
 the interesting result -- more so than peak RPS, which mostly measures your
 laptop.
 
+## The dependency list is checked, not curated
+
+`requirements.txt` lists what the source imports and nothing else. That is
+enforced rather than intended:
+
+```bash
+make deps
+```
+
+`tools/check_deps.py` parses every import in the repository and compares it
+against the file. It fails in both directions: a package that nothing imports,
+and a module that is imported but never declared. The gate runs it, and a
+separate CI job installs only the runtime file and then imports every module
+the suite uses, so a dependency that exists purely as somebody else's
+transitive install fails there rather than in your first run.
+
+Both of those had happened here. The file had grown to 24 pins covering Kafka,
+AWS, MongoDB, Postgres, MQTT, InfluxDB, pandas and numpy, none of which any
+module imported, which took the install from 77MB to 342MB. Meanwhile
+`util/locust_metrics.py` imported Flask, which appeared in neither requirements
+file and worked only because Locust installs Flask for its own web UI.
+
+## Unit tests
+
+```bash
+make test
+```
+
+`tests/unit/` covers the A/B comparison thresholds, the CSV loaders and the
+metrics recording, none of which need a service or a network. The gate runs
+them on every push.
+
+These are recent. `tests/` previously held only Locust scenarios named
+`*_load.py`, which pytest does not collect, so the gate's test step matched
+nothing, exited 5, and printed "(no unit tests in this repo)" as a pass.
+Collecting nothing is now a failure.
+
 ## Running Tests
 
 ### HTTP Load Test
